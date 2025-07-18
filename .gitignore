@@ -1,3 +1,6 @@
-/util/fat.h/
-/util/loader.h/
+/util/fat.h
+/util/loader.h
+/util/reloc.h
+/src/main
+/src/test
 .vscode
