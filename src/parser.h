@@ -19,10 +19,19 @@
 #define SECT_CSTRING "__cstring"
 #define SECT_STUBS "__stubs"
 
-struct raw_zone {
-    char *name;
-    size_t size;
-    uint32_t file_offset;
+struct generic_section {
+    char		sectname[16];
+	char		segname[16];
+
+	uint64_t	addr;
+	uint64_t	size;
+	uint32_t	offset;
+	uint32_t	align;
+
+	uint32_t	reloff;
+	uint32_t	nreloc;
+
+	uint32_t	flags;
 };
 
 struct mach_o_ctx {
@@ -33,10 +42,10 @@ struct mach_o_ctx {
     bool is_64bit;
     uint32_t nmcds;
 
-    struct raw_zone text;
-    struct raw_zone stubs;
-    struct raw_zone cstring;
-    struct raw_zone data;
+    struct generic_section text;
+    struct generic_section stubs;
+    struct generic_section cstring;
+    struct generic_section data;
     
     struct symtab_command symtab;
     struct dysymtab_command dysymtab;
@@ -47,6 +56,6 @@ struct mach_o_ctx {
     struct dylib_command *dylibs;
 };
 
-void set_raw_zone(struct raw_zone *zone, const char *name, size_t size, uint32_t file_offset);
+void set_generic_section(struct generic_section *out, void *in, bool is_64bit);
 void set_dylibs(struct mach_o_ctx *ctx, uint8_t *cmd_zone);
 struct mach_o_ctx *parse_mach_file(char *file_path, uint8_t* base, size_t file_size);

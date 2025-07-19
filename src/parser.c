@@ -1,10 +1,37 @@
 #include "parser.h"
 
-void set_raw_zone(struct raw_zone *zone, const char *name, size_t size, uint32_t file_offset) {
-    zone->name = strdup(name);
-    DIE(!zone->name, "[ERROR]: strdup() failed.");
-    zone->size = size;
-    zone->file_offset = file_offset;
+void set_generic_section(struct generic_section *sect_out, void *in, bool is_64bit) {
+    if (is_64bit) {
+        struct section_64 *sect_in = (struct section_64 *)in;
+
+        strcpy(sect_out->sectname, sect_in->sectname);
+        strcpy(sect_out->segname, sect_in->segname);
+
+        sect_out->addr = sect_in->addr;
+        sect_out->size = sect_in->size;
+        sect_out->offset = sect_in->offset;
+        sect_out->align = sect_in->align;
+
+        sect_out->reloff = sect_in->reloff;
+        sect_out->nreloc = sect_in->nreloc;
+
+        sect_out->flags = sect_in->flags;
+    } else {
+        struct section *sect_in = (struct section *)in;
+
+        strcpy(sect_out->sectname, sect_in->sectname);
+        strcpy(sect_out->segname, sect_in->segname);
+
+        sect_out->addr = sect_in->addr;
+        sect_out->size = sect_in->size;
+        sect_out->offset = sect_in->offset;
+        sect_out->align = sect_in->align;
+
+        sect_out->reloff = sect_in->reloff;
+        sect_out->nreloc = sect_in->nreloc;
+
+        sect_out->flags = sect_in->flags;
+    }
 }
 
 void set_dylibs(struct mach_o_ctx *ctx, uint8_t *cmd_zone) {
@@ -58,38 +85,41 @@ struct mach_o_ctx *parse_mach_file(char *file_path, uint8_t* base, size_t file_s
     for (uint32_t i = 0; i < ctx->nmcds; i++) {
         struct load_command *load_cmd = (struct load_command *)cmd_zone;
         switch (load_cmd->cmd) {
-            case LC_SEGMENT: {
-                struct segment_command *seg_cmd = (struct segment_command *)cmd_zone;
-                uint32_t nsects = seg_cmd->nsects;
+            case LC_SEGMENT: case LC_SEGMENT_64: {
+                uint32_t nsects;
+                uint8_t *sect_zone;
 
-                struct section *sect = (struct section *)(seg_cmd + 1);
-                for (uint32_t j = 0; j < nsects; j++) {
-                    if (strcmp(sect[j].sectname, SECT_TEXT) == 0) {
-                        set_raw_zone(&ctx->text, "text", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_CSTRING) == 0) {
-                        set_raw_zone(&ctx->cstring, "cstring", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_STUBS) == 0) {
-                        set_raw_zone(&ctx->stubs, "stubs", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_DATA) == 0) {
-                        set_raw_zone(&ctx->data, "data", sect[j].size, sect[j].offset);
-                    }
+                if (ctx->is_64bit) {
+                    nsects = ((struct segment_command_64 *)cmd_zone)->nsects;
+                    sect_zone = cmd_zone + sizeof(struct segment_command_64);
+                } else {
+                    nsects = ((struct segment_command *)cmd_zone)->nsects;
+                    sect_zone = cmd_zone + sizeof(struct segment_command);
                 }
-                break;
-            }
-            case LC_SEGMENT_64: {
-                struct segment_command_64 *seg_cmd = (struct segment_command_64 *)cmd_zone;
-                uint32_t nsects = seg_cmd->nsects;
 
-                struct section_64 *sect = (struct section_64 *)(seg_cmd + 1);
                 for (uint32_t j = 0; j < nsects; j++) {
-                    if (strcmp(sect[j].sectname, SECT_TEXT) == 0) {
-                        set_raw_zone(&ctx->text, "text", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_CSTRING) == 0) {
-                        set_raw_zone(&ctx->cstring, "cstring", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_STUBS) == 0) {
-                        set_raw_zone(&ctx->stubs, "stubs", sect[j].size, sect[j].offset);
-                    } else if (strcmp(sect[j].sectname, SECT_DATA) == 0) {
-                        set_raw_zone(&ctx->data, "data", sect[j].size, sect[j].offset);
+                    char sectname[17];
+                    if (ctx->is_64bit) {
+                        memcpy(sectname, ((struct section_64 *)sect_zone)->sectname, 16);
+                    } else {
+                        memcpy(sectname, ((struct section *)sect_zone)->sectname, 16);
+                    }
+                    sectname[16] = '\0';
+                    
+                    if (strcmp(sectname, SECT_TEXT) == 0) {
+                        set_generic_section(&ctx->text, sect_zone, ctx->is_64bit);
+                    } else if (strcmp(sectname, SECT_CSTRING) == 0) {
+                        set_generic_section(&ctx->cstring, sect_zone, ctx->is_64bit);
+                    } else if (strcmp(sectname, SECT_STUBS) == 0) {
+                        set_generic_section(&ctx->stubs, sect_zone, ctx->is_64bit);
+                    } else if (strcmp(sectname, SECT_DATA) == 0) {
+                        set_generic_section(&ctx->data, sect_zone, ctx->is_64bit);
+                    }
+
+                    if (ctx->is_64bit) {
+                        sect_zone += sizeof(struct section_64);
+                    } else {
+                        sect_zone += sizeof(struct section);
                     }
                 }
                 break;

@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "header.h"
+#include "load_commands.h"
 
 int main(int argc, char **argv) {
     DIE(argc == 1, "[ERROR]: Invalid number of arguments.");
@@ -20,7 +21,9 @@ int main(int argc, char **argv) {
     struct mach_o_ctx *ctx = parse_mach_file(argv[1], base, statbuf.st_size);
     DIE(!ctx, "[ERROR]: Failed to parse Mach-O file.");
         
-    print_mach_header(ctx);
+    display_mach_header(ctx);
+    display_load_cmds_summary(ctx);
+    choose_segment(ctx);
 
     close(fdin);
     return 0;
