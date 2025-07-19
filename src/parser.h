@@ -20,18 +20,18 @@
 #define SECT_STUBS "__stubs"
 
 struct generic_section {
-    char		sectname[16];
-	char		segname[16];
+    char sectname[16];
+	char segname[16];
 
-	uint64_t	addr;
-	uint64_t	size;
-	uint32_t	offset;
-	uint32_t	align;
+	uint64_t addr;
+	uint64_t size;
+	uint32_t offset;
+	uint32_t align;
 
-	uint32_t	reloff;
-	uint32_t	nreloc;
+	uint32_t reloff;
+	uint32_t nreloc;
 
-	uint32_t	flags;
+	uint32_t flags;
 };
 
 struct mach_o_ctx {
