@@ -14,3 +14,6 @@ void match_sect_flags(uint32_t flags);
 void display_generic_section(struct mach_o_ctx *ctx, struct generic_section sect);
 void iterate_sects(struct mach_o_ctx *ctx, struct load_command *load_cmd);
 
+void display_entry_point(struct mach_o_ctx *ctx);
+
+void display_dylibs(struct mach_o_ctx *ctx);

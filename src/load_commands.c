@@ -1,5 +1,6 @@
 #include "load_commands.h"
 
+// General load commands
 void match_cmd_name(uint32_t cmd_name) {
     switch (cmd_name) {
         case LC_SEGMENT:                 printf("LC_SEGMENT\n"); break;
@@ -89,6 +90,8 @@ void display_load_cmds_summary(struct mach_o_ctx *ctx) {
     printf("\n\n");
 }
 
+
+// Segment commands (including sections)
 void match_vm_prot(vm_prot_t prot) {
     if (prot == VM_PROT_NONE) {
         printf("\t\t- none (no access)\n");
@@ -453,4 +456,51 @@ void choose_segment(struct mach_o_ctx *ctx) {
         display_segment_info(ctx, cmds[seg_number - 1]);
         printf("------------------------------------------------------------------------------------------------------\n");
     }
-} 
+}
+
+
+// Entry point command
+void display_entry_point(struct mach_o_ctx *ctx) {
+    if (ctx->entry_point.cmd != LC_MAIN) {
+        printf("[*] No entry point command.\n\n");
+        return;
+    }
+    printf("[*] Entry Point Command information:\n\n");
+    printf("\t-> The entry_point_command is a replacement for thread_command. It is used for main executables to specify the location (file offset) of main().\n");
+    printf("\t-> File (__TEXT) offset of main(): %llu\n\n", ctx->entry_point.entryoff);
+
+    printf("\t-> If -stack_size was used at link time, the stacksize field will contain the stack size need for the main thread.\n");
+    printf("\t-> Initial stack size: %llu\n\n", ctx->entry_point.stacksize);
+}
+
+
+// Dylib command
+void display_dylibs(struct mach_o_ctx *ctx) {
+    printf("[*] DYLIB Commands information:\n\n");
+
+    printf("\t-> A dynamically linked shared library (filetype == MH_DYLIB in the mach header) contains a dylib_command (cmd == LC_ID_DYLIB) to identify the library.\n");
+    printf("\t-> An object that uses a dynamically linked shared library also contains a dylib_command (cmd == LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, or LC_REEXPORT_DYLIB) for each library it uses.\n");
+    printf("\t-> Number of dylib_commands: %zu\n", ctx->dylib_count);
+
+    printf("\t-> DYLIB commands:\n");
+    for (size_t i = 0; i < ctx->dylib_count; i++) {
+        printf("\t\t-> %zu. ", i + 1);
+        match_cmd_name(ctx->dylibs[i].dylib_cmd.cmd);
+        
+        printf("\t\t-> Command size (includes pathname string): %d\n", ctx->dylibs[i].dylib_cmd.cmdsize);
+
+        struct dylib lib = ctx->dylibs[i].dylib_cmd.dylib;
+        uint8_t *dylib_path = ctx->dylibs[i].cmd_struct + lib.name.offset;
+
+        printf("\t\t-> Library's path: %s\n", dylib_path);
+        printf("\t\t-> Library's build timestamp: %d\n", lib.timestamp);
+        printf("\t\t-> Library's current version number: %u.%u.%u\n", 
+                (lib.current_version >> 16) & 0xFFFF,
+                (lib.current_version >> 8) & 0xFF,
+                lib.current_version & 0xFF);
+        printf("\t\t-> Library's compatibility version number: %u.%u.%u\n\n", 
+                (lib.compatibility_version >> 16) & 0xFFFF,
+                (lib.compatibility_version >> 8) & 0xFF,
+                lib.compatibility_version & 0xFF);
+    }
+}

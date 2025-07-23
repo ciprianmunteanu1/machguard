@@ -34,6 +34,11 @@ struct generic_section {
 	uint32_t flags;
 };
 
+struct dylib_command_wrapper {
+    uint8_t *cmd_struct;
+    struct dylib_command dylib_cmd;
+};
+
 struct mach_o_ctx {
     char *file_path;
     uint8_t *base;
@@ -53,7 +58,7 @@ struct mach_o_ctx {
     struct entry_point_command entry_point;
 
     size_t dylib_count;
-    struct dylib_command *dylibs;
+    struct dylib_command_wrapper *dylibs;
 };
 
 void set_generic_section(struct generic_section *out, void *in, bool is_64bit);

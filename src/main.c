@@ -24,6 +24,8 @@ int main(int argc, char **argv) {
     display_mach_header(ctx);
     display_load_cmds_summary(ctx);
     choose_segment(ctx);
+    display_entry_point(ctx);
+    display_dylibs(ctx);
 
     close(fdin);
     return 0;

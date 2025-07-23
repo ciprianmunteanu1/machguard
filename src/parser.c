@@ -36,13 +36,14 @@ void set_generic_section(struct generic_section *sect_out, void *in, bool is_64b
 
 void set_dylibs(struct mach_o_ctx *ctx, uint8_t *cmd_zone) {
     if (ctx->dylib_count == 0) {
-        ctx->dylibs = malloc(sizeof(struct dylib_command));
+        ctx->dylibs = malloc(sizeof(struct dylib_command_wrapper));
         DIE(!ctx->dylibs, "[ERROR]: malloc() failed.");
     } else {
-        ctx->dylibs = realloc(ctx->dylibs, (ctx->dylib_count + 1) * sizeof(struct dylib_command));
+        ctx->dylibs = realloc(ctx->dylibs, (ctx->dylib_count + 1) * sizeof(struct dylib_command_wrapper));
         DIE(!ctx->dylibs, "[ERROR]: realloc() failed.");
     }
-    ctx->dylibs[ctx->dylib_count] = *(struct dylib_command *)cmd_zone;
+    ctx->dylibs[ctx->dylib_count].cmd_struct = cmd_zone;
+    ctx->dylibs[ctx->dylib_count].dylib_cmd = *(struct dylib_command *)cmd_zone;
     ctx->dylib_count++;
 }
 
