@@ -111,6 +111,236 @@ void match_seg_flags(uint32_t flags) {
         printf("\t\t- no flags set\n");
 }
 
+void match_sect_flags(uint32_t flags) {
+	uint32_t type = flags & SECTION_TYPE;
+	uint32_t attrs = flags & SECTION_ATTRIBUTES;
+
+	switch (type) {
+		case S_REGULAR:                          printf("\t\t- regular section (S_REGULAR)\n"); break;
+		case S_ZEROFILL:                         printf("\t\t- zero-filled section (S_ZEROFILL)\n"); break;
+		case S_CSTRING_LITERALS:                 printf("\t\t- only literal c strings (S_CSTRING_LITERALS)\n"); break;
+		case S_4BYTE_LITERALS:                   printf("\t\t- only 4-byte literals (S_4BYTE_LITERALS)\n"); break;
+		case S_8BYTE_LITERALS:                   printf("\t\t- only 8-byte literals (S_8BYTE_LITERALS)\n"); break;
+		case S_LITERAL_POINTERS:                 printf("\t\t- pointers to literals (S_LITERAL_POINTERS)\n"); break;
+		case S_NON_LAZY_SYMBOL_POINTERS:         printf("\t\t- non-lazy symbol pointers (S_NON_LAZY_SYMBOL_POINTERS)\n"); break;
+		case S_LAZY_SYMBOL_POINTERS:             printf("\t\t- lazy symbol pointers (S_LAZY_SYMBOL_POINTERS)\n"); break;
+		case S_SYMBOL_STUBS:                     printf("\t\t- symbol stubs, size in reserved2 (S_SYMBOL_STUBS)\n"); break;
+		case S_MOD_INIT_FUNC_POINTERS:           printf("\t\t- init function pointers (S_MOD_INIT_FUNC_POINTERS)\n"); break;
+		case S_MOD_TERM_FUNC_POINTERS:           printf("\t\t- termination function pointers (S_MOD_TERM_FUNC_POINTERS)\n"); break;
+		case S_COALESCED:                        printf("\t\t- coalesced symbols section (S_COALESCED)\n"); break;
+		case S_GB_ZEROFILL:                      printf("\t\t- large zero-filled section (S_GB_ZEROFILL)\n"); break;
+		case S_INTERPOSING:                      printf("\t\t- interposing function pointer pairs (S_INTERPOSING)\n"); break;
+		case S_16BYTE_LITERALS:                  printf("\t\t- only 16-byte literals (S_16BYTE_LITERALS)\n"); break;
+		case S_DTRACE_DOF:                       printf("\t\t- dtrace object format (S_DTRACE_DOF)\n"); break;
+		case S_LAZY_DYLIB_SYMBOL_POINTERS:       printf("\t\t- lazy dylib symbol pointers (S_LAZY_DYLIB_SYMBOL_POINTERS)\n"); break;
+		case S_THREAD_LOCAL_REGULAR:             printf("\t\t- thread-local regular data (S_THREAD_LOCAL_REGULAR)\n"); break;
+		case S_THREAD_LOCAL_ZEROFILL:            printf("\t\t- thread-local zero-filled data (S_THREAD_LOCAL_ZEROFILL)\n"); break;
+		case S_THREAD_LOCAL_VARIABLES:           printf("\t\t- thread-local variable descriptors (S_THREAD_LOCAL_VARIABLES)\n"); break;
+		case S_THREAD_LOCAL_VARIABLE_POINTERS:   printf("\t\t- pointers to tlv descriptors (S_THREAD_LOCAL_VARIABLE_POINTERS)\n"); break;
+		case S_THREAD_LOCAL_INIT_FUNCTION_POINTERS:
+												 printf("\t\t- init functions for tlv values (S_THREAD_LOCAL_INIT_FUNCTION_POINTERS)\n"); break;
+		case S_INIT_FUNC_OFFSETS:                printf("\t\t- 32-bit offsets to initializers (S_INIT_FUNC_OFFSETS)\n"); break;
+		default:                                 printf("\t\t- unknown section type (0x%x)\n", type); break;
+	}
+
+	if (attrs & S_ATTR_PURE_INSTRUCTIONS)
+		printf("\t\t- only pure machine instructions (S_ATTR_PURE_INSTRUCTIONS)\n");
+	if (attrs & S_ATTR_NO_TOC)
+		printf("\t\t- not in table of contents (S_ATTR_NO_TOC)\n");
+	if (attrs & S_ATTR_STRIP_STATIC_SYMS)
+		printf("\t\t- strip static symbols allowed (S_ATTR_STRIP_STATIC_SYMS)\n");
+	if (attrs & S_ATTR_NO_DEAD_STRIP)
+		printf("\t\t- no dead stripping (S_ATTR_NO_DEAD_STRIP)\n");
+	if (attrs & S_ATTR_LIVE_SUPPORT)
+		printf("\t\t- live blocks if they reference other live blocks (S_ATTR_LIVE_SUPPORT)\n");
+	if (attrs & S_ATTR_SELF_MODIFYING_CODE)
+		printf("\t\t- self-modifying code (S_ATTR_SELF_MODIFYING_CODE)\n");
+	if (attrs & S_ATTR_DEBUG)
+		printf("\t\t- debug-only section (S_ATTR_DEBUG)\n");
+	if (attrs & S_ATTR_SOME_INSTRUCTIONS)
+		printf("\t\t- contains some instructions (S_ATTR_SOME_INSTRUCTIONS)\n");
+	if (attrs & S_ATTR_EXT_RELOC)
+		printf("\t\t- has external relocations (S_ATTR_EXT_RELOC)\n");
+	if (attrs & S_ATTR_LOC_RELOC)
+		printf("\t\t- has local relocations (S_ATTR_LOC_RELOC)\n");
+
+	if (attrs == 0)
+		printf("\t\t- no section attributes set\n");
+}
+
+void display_generic_section(struct mach_o_ctx *ctx, struct generic_section sect) {
+    printf("\n[*] Section %s information:\n\n", sect.sectname);
+
+    printf("\t-> Segment this section goes in: %s\n", sect.segname);
+
+    if (ctx->is_64bit) {
+        printf("\t-> Memory address of this section: 0x%llx\n", sect.addr);
+        printf("\t-> Size in bytes of this section: %llu\n", sect.size);
+    } else {
+        printf("\t-> Memory address of this section: 0x%x\n", (uint32_t)sect.addr);
+        printf("\t-> Size in bytes of this section: %u\n", (uint32_t)sect.size);
+    }
+    
+    printf("\t-> File offset of this section: %d\n", sect.offset);
+    printf("\t-> Section alignment (power of 2): %d\n", sect.align);
+    printf("\t-> File offset of relocation entries: %d\n", sect.reloff);
+    printf("\t-> Number of relocation entries: %d\n", sect.nreloc);
+
+    printf("\t-> Flags (section type and attributes):\n");
+    match_sect_flags(sect.flags);
+
+    printf("\n");
+}
+
+void iterate_sects(struct mach_o_ctx *ctx, struct load_command *load_cmd) {
+    if (ctx->is_64bit) {
+        struct segment_command_64 *seg_cmd = (struct segment_command_64 *)load_cmd;
+        struct section_64 *sect = (struct section_64 *)(seg_cmd + 1);
+
+        for (uint32_t i = 0; i < seg_cmd->nsects; i++) {
+            struct section_64 curr_sect = sect[i];
+
+            if (strcmp(curr_sect.segname, ctx->text.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->text.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __text. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->text);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+        
+            } else if (strcmp(curr_sect.segname, ctx->stubs.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->stubs.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __stubs. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->stubs);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+
+            } else if (strcmp(curr_sect.segname, ctx->cstring.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->cstring.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __cstring. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->cstring);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+
+            } else if (strcmp(curr_sect.segname, ctx->data.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->data.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __data. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->data);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+
+            }
+        }
+    } else {
+        struct segment_command *seg_cmd = (struct segment_command *)load_cmd;
+        struct section *sect = (struct section *)(seg_cmd + 1);
+
+        for (uint32_t i = 0; i < seg_cmd->nsects; i++) {
+            struct section curr_sect = sect[i];
+
+            if (strcmp(curr_sect.segname, ctx->text.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->text.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __text. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->text);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+
+            } else if (strcmp(curr_sect.segname, ctx->stubs.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->stubs.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __stubs. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->stubs);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+
+            } else if (strcmp(curr_sect.segname, ctx->cstring.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->cstring.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __cstring. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->cstring);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again.: ");
+                    }
+                }
+
+            } else if (strcmp(curr_sect.segname, ctx->data.segname) == 0 && 
+                strcmp(curr_sect.sectname, ctx->data.sectname) == 0) {
+                printf("\n[?] This segment contains the known section __data. -> Would you like to display details about it? (y/n): ");
+
+                char check;
+                while (scanf(" %c", &check)) {
+                    if (check == 'y') {
+                        display_generic_section(ctx, ctx->data);
+                        break;
+                    } else if (check == 'n') {
+                        break;
+                    } else {
+                        printf("[*] Invalid input. Try again: ");
+                    }
+                }
+            }
+        }
+    }
+}
+
 void display_segment_info(struct mach_o_ctx *ctx, struct load_command *load_cmd) {
     printf("[*] Segment Load Command information:\n\n");
     printf("\t-> The segment load command indicates that a part of this file is to be mapped into the task's address space.\n");
@@ -137,6 +367,8 @@ void display_segment_info(struct mach_o_ctx *ctx, struct load_command *load_cmd)
         match_seg_flags(seg_cmd->flags);
 
         printf("\n");
+        iterate_sects(ctx, load_cmd);
+    
     } else {
         struct segment_command *seg_cmd = (struct segment_command *)load_cmd;
 
@@ -159,6 +391,7 @@ void display_segment_info(struct mach_o_ctx *ctx, struct load_command *load_cmd)
         match_seg_flags(seg_cmd->flags);
         
         printf("\n");
+        iterate_sects(ctx, load_cmd);
     }
 }
 
@@ -181,8 +414,10 @@ void choose_segment(struct mach_o_ctx *ctx) {
         if (cmd_name == LC_SEGMENT || cmd_name == LC_SEGMENT_64) {
             if (count == 0) {
                 cmds = malloc(sizeof(struct load_command *));
+                DIE(!cmds, "[ERROR]: malloc() failed.");
             } else {
                 cmds = realloc(cmds, (count + 1) * sizeof(struct load_command *));
+                DIE(!cmds, "[ERROR]: realloc() failed.");
             }
             cmds[count] = load_cmd;
             count++;
@@ -208,7 +443,7 @@ void choose_segment(struct mach_o_ctx *ctx) {
             break;
         }
 
-        if (seg_number - 1< 0 || seg_number - 1 >= count) {
+        if (seg_number - 1 < 0 || seg_number - 1 >= count) {
             printf("\n[*] Invalid number. Try again.\n\n");
             printf("------------------------------------------------------------------------------------------------------\n");
             continue;
